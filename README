@@ -1,0 +1,74 @@
+Simple embedded HTTP server/client
+
+Support:
+GET
+POST
+SSL/HTTPS
+Chunked/HTTP1.1
+URL router
+GZIP
+Embedded static resource
+
+
+Example server:
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#include "mcuhttp.h"
+#include "mcussl.h"
+
+#include "test-certs.h"
+#include "test-resources.h"
+
+int index_json(mcuhttp_t *con, const mcuhttp_router_t *router) {
+	mcuhttp_create_response(con);
+	
+	mcuhttp_set_header(con, "Content-Type", "text/html");
+	
+	mcuhttp_set_header(con, "Transfer-Encoding", "chunked");
+	
+	mcuhttp_send_response(con, 200);
+	
+	mcuhttp_send_body(con, "<h1>hello</h1>", 14);
+	
+	mcuhttp_send_body(con, NULL, 0);
+	
+	return 0;
+}
+
+mcuhttp_router_t routers[] = {
+	MCUHTTP_ROUTER_INDEX_HTML, /* static file*/
+	MCUHTTP_ROUTER_LENNA_PNG,  /* static file*/
+	MCUHTTP_CALLBACK_ROUTER("/index.json", index_json),
+};
+
+int main() {
+	mcuhttp_server_t server;
+	
+	memset(&server, 0, sizeof(server));
+	
+	server.addr = "127.0.0.1";
+	server.port = 8822;
+	server.max_con = 32;
+	server.timeout = 3000;
+	server.routers = routers;
+	server.router_count = MCUHTTP_SIZE_OF_ARRAY(routers);
+#if TEST_SSL
+	server.type = MCUHTTP_SSL;
+	server.srvcert = server_crt;
+	server.srvcert_len = server_crt_len;
+	server.pkey = server_key;
+	server.pkey_len = server_key_len;
+#else
+	server.type = MCUHTTP_PLAIN;
+#endif
+	return mcuhttp_serve(&server, NULL);
+}
+
+Genarate static resource:
+python -g -r -o test-resources.h index.html lenna.png
+
+License:
+GNU Affero General Public License Version 3
